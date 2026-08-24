@@ -66,8 +66,6 @@ input {
   letter-spacing: 0.13em;
   text-transform: uppercase;
   backdrop-filter: blur(8px);
-
-  display: none !important;
 }
 
 .index-panel {
