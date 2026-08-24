@@ -1,17 +1,26 @@
-# tread wheel map prototype
+# tread
 
-## ローカルで開く
+写真作品「tread」に関連する、車輪の取得位置を閲覧するためのウェブマップです。
 
-このフォルダで次を実行し、表示されたURLをスマートフォンまたはPCのブラウザで開きます。
+## Features
 
-```sh
-python3 -m http.server 8000
-```
+- 地図上のピンから車輪番号と写真を表示
+- 車輪番号一覧から取得位置へ移動
+- スマートフォンでの閲覧に対応
 
-地図タイルの表示にはインターネット接続が必要です。
+## Website
 
-## GitHub Pagesで公開する
+https://tomonariutsuno.github.io/tread-location/
 
-このフォルダの中身をGitHubリポジトリへ置き、リポジトリの Settings > Pages で公開元を選択します。サーバー側の処理やAPIキーは不要です。
+## Technology
 
-公開前に `data.js` と `wheels` フォルダを本番データへ差し替えます。画面上には画像ファイル名を表示しない設計です。
+- HTML
+- CSS
+- JavaScript
+- Leaflet
+- OpenStreetMap
+
+## Copyright
+
+Photographs and project content © 2026 Tomonari Utsuno.  
+Map data © OpenStreetMap contributors.
