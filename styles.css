@@ -51,22 +51,8 @@ input {
   height: 100%;
 }
 
-.map-caption {
-  position: absolute;
-  z-index: 500;
-  right: 16px;
-  bottom: 26px;
-  padding: 8px 10px;
-  border: 1px solid rgba(23, 23, 20, 0.16);
-  border-radius: 2px;
-  background: rgba(249, 248, 244, 0.9);
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
-}
+
+
 
 .index-panel {
   grid-area: index;
@@ -369,10 +355,7 @@ input {
     font-size: 22px;
   }
 
-  .map-caption {
-    right: 12px;
-    bottom: 23px;
-  }
+
 
   .wheel-card img {
     height: min(238px, 38svh);

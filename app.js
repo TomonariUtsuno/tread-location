@@ -5,7 +5,6 @@
   const list = document.getElementById("wheel-list");
   const search = document.getElementById("wheel-search");
   const emptyState = document.getElementById("empty-state");
-  const visibleCount = document.getElementById("visible-count");
   const markers = new Map();
   let activeNumber = null;
 
@@ -16,10 +15,12 @@
     zoomSnap: 0.5,
   });
 
+  map.attributionControl.setPrefix(false);
+
   L.control.zoom({ position: "topright" }).addTo(map);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMapcontributors</a>',
   }).addTo(map);
 
   function pinIcon(number, active) {
@@ -119,7 +120,6 @@
     });
 
     emptyState.hidden = filtered.length > 0;
-    visibleCount.textContent = String(filtered.length);
   }
 
   search.addEventListener("input", (event) => renderList(event.target.value));
