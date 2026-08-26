@@ -299,6 +299,7 @@ input {
 }
 
 .leaflet-control-attribution {
+  margin-right: calc(18px + env(safe-area-inset-right, 0px)) !important;
   background: rgba(249, 248, 244, 0.84) !important;
   font-size: 9px !important;
 }
