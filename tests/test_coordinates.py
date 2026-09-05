@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -15,6 +16,20 @@ from coordinates import CoordinateError, parse_coordinate_input  # noqa: E402
 
 
 class CoordinateInputTests(unittest.TestCase):
+    def test_shared_swift_coordinate_cases_match_python_results(self) -> None:
+        fixture = ROOT / "tests" / "TreadUpdaterTests" / "Fixtures" / "coordinate-cases.json"
+        cases = json.loads(fixture.read_text(encoding="utf-8"))
+        for case in cases:
+            if "error" in case:
+                with self.assertRaises(CoordinateError, msg=case["input"]):
+                    parse_coordinate_input(case["input"])
+                continue
+            result = parse_coordinate_input(case["input"])
+            self.assertEqual(result.input_format, case["format"], case["input"])
+            self.assertEqual(format(result.lat, ".8f"), case["lat"], case["input"])
+            self.assertEqual(format(result.lng, ".8f"), case["lng"], case["input"])
+            self.assertEqual(bool(result.warnings), case["warning"], case["input"])
+
     def test_dms_example_converts_to_decimal_degrees(self) -> None:
         result = parse_coordinate_input('N34°31\'22.98" E135°36\'27.93"')
         self.assertEqual(result.input_format, "dms")

@@ -52,6 +52,21 @@ kept only in the updater's unsaved draft: it is presentation-specific and would 
 canonical geographical data inconsistent. Ambiguous or invalid input is reported rather
 than silently reordered or corrected.
 
+## Local draft updater (macOS)
+
+The local SwiftUI updater is a draft-only tool: it reads `wheels.json` and images for
+validation and map preview, but never writes repository data, images, or GitHub.
+It uses only macOS frameworks and does not rely on system Python when it runs.
+
+From the repository root on a Mac with Xcode installed:
+
+```sh
+swift run TreadUpdater
+```
+
+Use `swift test` to run the Swift regression tests. The same coordinate-case fixture is
+also exercised by the Python validation tests, so both implementations remain aligned.
+
 ## Copyright
 
 Photographs and project content © 2026 Tomonari Utsuno.  
