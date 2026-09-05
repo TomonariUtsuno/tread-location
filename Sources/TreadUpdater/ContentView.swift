@@ -7,6 +7,9 @@ struct ContentView: View {
     @EnvironmentObject private var store: DraftStore
     @State private var showingFileImporter = false
     @State private var isDropTargeted = false
+    @StateObject private var publication = PublicationCoordinator()
+    @State private var showingAuthentication = false
+    @State private var showingReview = false
 
     var body: some View {
         NavigationSplitView {
@@ -16,6 +19,7 @@ struct ContentView: View {
                     showingFileImporter = true
                 }
                 .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: receiveDrop)
+                .disabled(publication.stage.isBusy)
 
                 Divider()
 
@@ -35,12 +39,30 @@ struct ContentView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             ForEach(store.drafts) { draft in
-                                DraftEditorRow(draft: draft, onChange: store.revalidate, onRemove: { store.remove(draft) })
+                                DraftEditorRow(
+                                    draft: draft,
+                                    isLocked: publication.stage.isBusy,
+                                    onChange: {
+                                        publication.invalidatePreparedPlan()
+                                        store.revalidate()
+                                    },
+                                    onRemove: {
+                                        publication.invalidatePreparedPlan()
+                                        store.remove(draft)
+                                    }
+                                )
                             }
                         }
                         .padding(16)
                     }
                 }
+
+                Divider()
+                PublicationControls(
+                    coordinator: publication,
+                    showAuthentication: { showingAuthentication = true },
+                    showReview: { showingReview = true }
+                )
             }
             .navigationSplitViewColumnWidth(min: 400, ideal: 470, max: 560)
         } detail: {
@@ -52,18 +74,36 @@ struct ContentView: View {
             allowsMultipleSelection: true
         ) { result in
             if case let .success(urls) = result {
+                publication.invalidatePreparedPlan()
                 store.addFiles(urls)
+            }
+        }
+        .sheet(isPresented: $showingAuthentication) {
+            TokenSettingsView(coordinator: publication)
+        }
+        .sheet(isPresented: $showingReview) {
+            if let plan = publication.plan {
+                PublicationReviewSheet(coordinator: publication, plan: plan)
             }
         }
     }
 
     private var editorHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("tread 更新")
-                .font(.system(size: 24, weight: .regular, design: .rounded))
-            Text("公開前の未確定ドラフト。GitHubや公開サイトは変更しません。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("tread 更新")
+                    .font(.system(size: 24, weight: .regular, design: .rounded))
+                Text("公開前の未確定ドラフト。GitHubや公開サイトは変更しません。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                showingAuthentication = true
+            } label: {
+                Image(systemName: publication.hasStoredToken ? "key.fill" : "key")
+            }
+            .accessibilityLabel("GitHub認証設定")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -121,6 +161,7 @@ private struct DropZone: View {
 
 private struct DraftEditorRow: View {
     @ObservedObject var draft: DraftWheel
+    let isLocked: Bool
     let onChange: () -> Void
     let onRemove: () -> Void
 
@@ -224,6 +265,7 @@ private struct DraftEditorRow: View {
                 .strokeBorder(draft.hasBlockingError ? Color.red.opacity(0.55) : Color.secondary.opacity(0.22))
         }
         .accessibilityElement(children: .contain)
+        .disabled(isLocked)
     }
 }
 
@@ -234,6 +276,193 @@ private struct IssueLabel: View {
         Label(issue.message, systemImage: issue.severity == .error ? "xmark.circle.fill" : "exclamationmark.triangle.fill")
             .font(.caption)
             .foregroundStyle(issue.severity == .error ? .red : .orange)
+    }
+}
+
+private struct PublicationControls: View {
+    @EnvironmentObject private var store: DraftStore
+    @ObservedObject var coordinator: PublicationCoordinator
+    let showAuthentication: () -> Void
+    let showReview: () -> Void
+
+    private var buttonState: PublicationButtonState {
+        PublicationButtonState.resolve(
+            hasToken: coordinator.hasStoredToken,
+            draftCount: store.drafts.count,
+            validDraftCount: store.validDrafts.count,
+            isPublishing: coordinator.stage.isBusy
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !coordinator.stage.message.isEmpty {
+                Text(coordinator.stage.message)
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+            }
+            HStack {
+                Button("公開内容を確認") {
+                    Task {
+                        await coordinator.prepare(drafts: store.drafts)
+                        if coordinator.plan != nil { showReview() }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!buttonState.isEnabled)
+
+                if !coordinator.hasStoredToken {
+                    Button("GitHub認証を設定", action: showAuthentication)
+                        .buttonStyle(.bordered)
+                }
+                Spacer()
+                Text("\(store.validDrafts.count) / \(store.drafts.count) 件が公開可能")
+                    .font(.caption)
+                    .foregroundStyle(buttonState.isEnabled ? Color.secondary : Color.red)
+            }
+            if let explanation = buttonState.explanation {
+                Text(explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+    }
+
+    private var statusColor: Color {
+        switch coordinator.stage {
+        case .failed, .conflict: .red
+        case .pagesTimedOut: .orange
+        case .githubUpdated, .pagesLive: .green
+        default: .secondary
+        }
+    }
+}
+
+private struct TokenSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var coordinator: PublicationCoordinator
+    @State private var token = ""
+    @State private var message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("GitHub認証")
+                .font(.title2)
+            Text("対象: TomonariUtsuno/tread-location のみ。fine-grained personal access tokenにはContents: Read and writeを設定してください。トークンはmacOS Keychainにだけ保存され、表示・ログ出力・Git保存はしません。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            SecureField(coordinator.hasStoredToken ? "新しいトークンを入力して更新" : "GitHub fine-grained token", text: $token)
+                .textFieldStyle(.roundedBorder)
+            if let message {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            if !coordinator.stage.message.isEmpty, case .failed = coordinator.stage {
+                Text(coordinator.stage.message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            HStack {
+                Button("保存") {
+                    do {
+                        try coordinator.saveToken(token)
+                        token = ""
+                        message = "Keychainへ保存しました。"
+                    } catch {
+                        message = error.localizedDescription
+                    }
+                }
+                .disabled(token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("接続を確認") {
+                    Task { await coordinator.verifyConnection() }
+                }
+                .disabled(!coordinator.hasStoredToken || coordinator.stage.isBusy)
+                Spacer()
+                if coordinator.hasStoredToken {
+                    Button("保存済みトークンを削除", role: .destructive) {
+                        do {
+                            try coordinator.deleteToken()
+                            message = "Keychainから削除しました。"
+                        } catch {
+                            message = error.localizedDescription
+                        }
+                    }
+                }
+                Button("閉じる", action: dismiss.callAsFunction)
+            }
+        }
+        .padding(22)
+        .frame(width: 510)
+    }
+}
+
+private struct PublicationReviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var coordinator: PublicationCoordinator
+    let plan: PublicationPlan
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("公開内容の確認")
+                .font(.title2)
+            Text("対象リポジトリ: \(plan.target.identifier)　ブランチ: \(plan.target.branch)")
+            Text("コミットメッセージ: \(plan.commitMessage)")
+                .textSelection(.enabled)
+            Text("追加件数: \(plan.entries.count)　既存データ・既存画像は削除・変更しません。")
+                .font(.headline)
+
+            List {
+                Section("追加する車輪") {
+                    ForEach(plan.entries) { entry in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("No.\(entry.number)　\(entry.sourceFilename) → \(entry.outputFilename)")
+                            Text("lat: \(CoordinateParser.previewFormatter.string(from: NSDecimalNumber(decimal: entry.lat)) ?? "")　lng: \(CoordinateParser.previewFormatter.string(from: NSDecimalNumber(decimal: entry.lng)) ?? "")")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Section("同一コミットに含めるファイル") {
+                    ForEach(plan.files, id: \.path) { file in
+                        Text(file.path)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
+                if !plan.warnings.isEmpty {
+                    Section("警告") {
+                        ForEach(plan.warnings, id: \.self, content: Text.init)
+                    }
+                }
+            }
+
+            Text(coordinator.stage.message)
+                .font(.caption)
+                .foregroundStyle(statusColor)
+            HStack {
+                Button("戻る", action: dismiss.callAsFunction)
+                    .disabled(coordinator.stage.isBusy)
+                Spacer()
+                Button("公開を実行") {
+                    Task { await coordinator.publish() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!coordinator.canPublish)
+            }
+        }
+        .padding(22)
+        .frame(width: 650, height: 610)
+        .interactiveDismissDisabled(coordinator.stage.isBusy)
+    }
+
+    private var statusColor: Color {
+        switch coordinator.stage {
+        case .failed, .conflict: .red
+        case .pagesTimedOut: .orange
+        case .githubUpdated, .pagesLive: .green
+        default: .secondary
+        }
     }
 }
 

@@ -67,6 +67,19 @@ swift run TreadUpdater
 Use `swift test` to run the Swift regression tests. The same coordinate-case fixture is
 also exercised by the Python validation tests, so both implementations remain aligned.
 
+## GitHub publishing preparation
+
+The updater's publish flow is intentionally explicit: it first fetches the current
+`main` HEAD, shows the complete confirmation plan, rechecks that HEAD immediately before
+publishing, then creates image blobs, a tree, and one commit before a non-force ref
+update. A failure before the ref update cannot partially publish images or data.
+
+Before using publishing for the first time, create a GitHub fine-grained personal access
+token limited to `TomonariUtsuno/tread-location`, with **Contents: Read and write**.
+Register it in the updater's GitHub authentication screen. The updater stores it only in
+the macOS Keychain, never in this repository, `UserDefaults`, logs, or a settings file.
+The publish flow is tested with mocks; no token is required to build or test the app.
+
 ## Copyright
 
 Photographs and project content © 2026 Tomonari Utsuno.  

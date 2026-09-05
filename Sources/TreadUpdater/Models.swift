@@ -6,7 +6,7 @@ struct WheelCatalog: Decodable {
     let wheels: [ExistingWheel]
 }
 
-struct ExistingWheel: Decodable, Identifiable {
+struct ExistingWheel: Codable, Identifiable, Equatable {
     let number: Int
     let lat: Double
     let lng: Double

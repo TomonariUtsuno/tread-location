@@ -7,6 +7,7 @@ final class DraftWheel: ObservableObject, Identifiable {
     let id = UUID()
     let sourceURL: URL
     let sourceFilename: String
+    let sourceData: Data?
     let inspection: ImageInspection?
     let inspectionError: String?
     let suggestedNumber: Int?
@@ -19,6 +20,7 @@ final class DraftWheel: ObservableObject, Identifiable {
     init(url: URL) {
         sourceURL = url
         sourceFilename = url.lastPathComponent
+        sourceData = try? Data(contentsOf: url)
         suggestedNumber = Self.inferNumber(from: url.lastPathComponent)
         numberText = suggestedNumber.map(String.init) ?? ""
         do {
@@ -108,6 +110,7 @@ final class DraftWheel: ObservableObject, Identifiable {
 final class DraftStore: ObservableObject {
     @Published private(set) var drafts: [DraftWheel] = []
     @Published private(set) var existingWheels: [ExistingWheel] = []
+    @Published private(set) var catalogData: Data?
     @Published private(set) var repositoryError: String?
     @Published var selectedDraftID: UUID?
 
@@ -182,6 +185,7 @@ final class DraftStore: ObservableObject {
         do {
             let data = try Data(contentsOf: repositoryRoot.appendingPathComponent("wheels.json"))
             existingWheels = try JSONDecoder().decode(WheelCatalog.self, from: data).wheels
+            catalogData = data
         } catch {
             repositoryError = "既存データを読み込めませんでした: \(error.localizedDescription)"
         }
