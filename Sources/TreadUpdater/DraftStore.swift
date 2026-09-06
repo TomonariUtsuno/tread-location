@@ -116,8 +116,8 @@ final class DraftStore: ObservableObject {
 
     private let repositoryRoot: URL?
 
-    init() {
-        repositoryRoot = Self.findRepositoryRoot()
+    init(repositoryRoot: URL? = RepositoryDataLocator.locate()) {
+        self.repositoryRoot = repositoryRoot
         loadExistingWheels()
     }
 
@@ -179,7 +179,7 @@ final class DraftStore: ObservableObject {
 
     private func loadExistingWheels() {
         guard let repositoryRoot else {
-            repositoryError = "wheels.json を含むリポジトリのルートを見つけられませんでした。リポジトリ直下でアプリを起動してください。"
+            repositoryError = "wheels.json を含むデータを見つけられませんでした。開発時はリポジトリ内で、配布版は生成されたアプリから起動してください。"
             return
         }
         do {
@@ -189,17 +189,5 @@ final class DraftStore: ObservableObject {
         } catch {
             repositoryError = "既存データを読み込めませんでした: \(error.localizedDescription)"
         }
-    }
-
-    private static func findRepositoryRoot() -> URL? {
-        var directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-        while directory.path != "/" {
-            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("wheels.json").path),
-               FileManager.default.fileExists(atPath: directory.appendingPathComponent("wheels").path) {
-                return directory
-            }
-            directory.deleteLastPathComponent()
-        }
-        return nil
     }
 }

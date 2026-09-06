@@ -67,6 +67,61 @@ swift run TreadUpdater
 Use `swift test` to run the Swift regression tests. The same coordinate-case fixture is
 also exercised by the Python validation tests, so both implementations remain aligned.
 
+## Installable macOS app
+
+### Normal use
+
+On a Mac with Xcode (or its command-line tools) installed, create the app from the
+repository root:
+
+```sh
+./scripts/build-macos-app.sh
+```
+
+This creates [`dist/Tread Updater.app`](dist/Tread%20Updater.app). In Finder, drag that
+app to `/Applications`, then double-click it to launch. Re-run the same command after an
+updater change, quit the old copy, and replace the app in `/Applications` with the newly
+generated one.
+
+The app is a Universal Binary for Apple Silicon and Intel Macs. Its Finder/Dock icon is
+generated from `Packaging/AppIcon-master.png`, the supplied 6090 × 6053 px RGBA master.
+The generator preserves the image's aspect ratio and transparent pixels, centers it on a
+square transparent canvas, converts the output to sRGB, and writes all standard macOS
+icon sizes; it never crops or redraws the artwork.
+
+GitHub authentication is stored only in the macOS Keychain. Never paste a PAT into chat,
+Git, this README, logs, screenshots, or any other shared text. A locally built app is
+ad-hoc signed but is not notarized. macOS may ask you to confirm the first launch; use
+Finder's **Open** command only after verifying that the app came from your local build.
+The installable app and `swift run` use separate, stable Keychain service identifiers, so
+their credentials cannot be confused. Register authentication separately in the version
+you intend to use; no Keychain sharing entitlement is requested.
+
+### Developer and verification details
+
+`scripts/build-macos-app.sh` builds the Swift Package in release mode for both `arm64`
+and `x86_64`, embeds `wheels.json` and the unmodified `wheels/` image directory inside the
+app, produces an ICNS resource, and applies an ad-hoc signature. It does not need an
+Xcode project, a Python runtime at app launch, a developer certificate, or any external
+service. The app uses its bundled catalogue when launched from Finder and the repository
+catalogue when launched with `swift run` in a working tree.
+
+Verify an existing build with:
+
+```sh
+./scripts/verify-macos-app.sh
+lipo -archs "dist/Tread Updater.app/Contents/MacOS/TreadUpdater"
+```
+
+For development troubleshooting, start the unbundled app at the repository root with
+`swift run TreadUpdater`. Run `swift test` for Swift tests and the commands in
+[Data maintenance](#data-maintenance) for the Python and catalogue checks.
+
+The local signature is sufficient for personal installation on the building Mac, but it
+is not a Developer ID signature or Apple notarization. Before distributing the app to
+other people, use a Developer ID certificate and Apple notarization; do not add Apple ID,
+certificates, private keys, or PATs to this repository or to build scripts.
+
 ## GitHub publishing preparation
 
 The updater's publish flow is intentionally explicit: it first fetches the current

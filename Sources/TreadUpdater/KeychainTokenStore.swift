@@ -22,8 +22,24 @@ enum KeychainTokenStoreError: LocalizedError {
     }
 }
 
+enum KeychainCredentialIdentifier {
+    private static let servicePrefix = "jp.tomonariutsuno.tread-updater.github-token"
+
+    /// Keeps the installable app's credentials separate from `swift run` credentials.
+    static func service(for bundleURL: URL = Bundle.main.bundleURL) -> String {
+        let scope = bundleURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame
+            ? "app"
+            : "development"
+        return "\(servicePrefix).\(scope)"
+    }
+}
+
 final class KeychainTokenStore: TokenStoring {
-    private let service = "jp.tomonariutsuno.tread-updater.github-token"
+    private let service: String
+
+    init(service: String = KeychainCredentialIdentifier.service()) {
+        self.service = service
+    }
 
     func token(for target: RepositoryTarget) throws -> String? {
         var query = baseQuery(target)
