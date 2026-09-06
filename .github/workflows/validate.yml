@@ -1,0 +1,21 @@
+name: Validate tread map data
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate catalog and images
+        run: python3 -B scripts/validate-wheels.py
+      - name: Verify generated browser data
+        run: python3 -B scripts/generate-data-js.py --check
+      - name: Run data-tool tests
+        run: python3 -B -m unittest discover -s tests
